@@ -1,5 +1,5 @@
 /**
- * @file demo.c
+ * @file shell.c
  * @brief A simple custom shell implementation in C.
  *
  * This program implements a basic shell that can execute commands with support for:
