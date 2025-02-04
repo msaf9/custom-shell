@@ -1,21 +1,26 @@
 /**
- * @file shell.c
+ * @file demo.c
  * @brief A simple custom shell implementation in C.
  *
  * This program implements a basic shell that can execute commands with support for:
+ * - Command history
  * - Background execution using '&'
  * - Input redirection using '<'
  * - Output redirection using '>'
  * - Piped commands using '|'
- * - Built-in commands like 'cd' and 'exit'
+ * - Built-in commands like 'cd', 'exit', and 'history'
+ * - Re-execution of commands from history using '!<number>'
  *
  * The shell reads user input, parses it to identify special symbols, and executes the commands accordingly.
  *
  * Functions:
- * - parse_input: Parses the input string into arguments and detects special symbols for background execution, redirection, and piping.
+ * - add_to_history: Saves commands in history.
+ * - print_history: Displays the command history.
+ * - parse_input: Parses the input string into commands, supporting multiple pipes.
+ * - parse_command: Parses a single command into arguments, detecting background execution, input, and output redirection.
  * - execute_command: Executes a command with optional input/output redirection.
- * - execute_piped_command: Executes two commands connected by a pipe.
- * - handle_builtin: Handles built-in shell commands like 'cd' and 'exit'.
+ * - execute_piped_commands: Executes a pipeline of commands.
+ * - handle_builtin: Handles built-in shell commands like 'cd', 'exit', and 'history'.
  * - main: The main loop of the shell that reads user input and executes commands.
  *
  * Usage:
@@ -23,6 +28,7 @@
  * - Run the compiled executable to start the custom shell.
  * - Enter commands at the prompt (mysh>).
  * - Use '&' for background execution, '<' for input redirection, '>' for output redirection, and '|' for piping commands.
+ * - Use 'history' to view command history and '!<number>' to re-execute a command from history.
  *
  */
 
@@ -36,35 +42,86 @@
 
 #define MAX_INPUT_SIZE 1024
 #define MAX_ARG_COUNT 64
+#define MAX_HISTORY 100
 
-// Function to parse input into arguments and detect special symbols
-void parse_input(char *input, char **args, int *is_background, char **input_file, char **output_file, int *is_piped, char **pipe_cmd)
+char history[MAX_HISTORY][MAX_INPUT_SIZE]; // Command history
+int history_count = 0;
+
+// Function to save commands in history
+void add_to_history(const char *input)
+{
+    if (history_count < MAX_HISTORY)
+    {
+        strcpy(history[history_count], input);
+        history_count++;
+    }
+    else
+    {
+        // Shift commands up when history is full
+        for (int i = 1; i < MAX_HISTORY; i++)
+        {
+            strcpy(history[i - 1], history[i]);
+        }
+        strcpy(history[MAX_HISTORY - 1], input);
+    }
+}
+
+// Function to display command history
+void print_history()
+{
+    for (int i = 0; i < history_count; i++)
+    {
+        printf("[%d] %s\n", i + 1, history[i]);
+    }
+}
+
+// Function to parse input into commands, supporting multiple pipes
+void parse_input(char *input, char *commands[], int *command_count)
+{
+    *command_count = 0;
+    char *token = strtok(input, "|");
+
+    while (token != NULL)
+    {
+        commands[(*command_count)++] = token;
+        token = strtok(NULL, "|");
+    }
+    commands[*command_count] = NULL;
+}
+
+// Function to parse a single command into arguments
+void parse_command(char *command, char **args, int *is_background, char **input_file, char **output_file)
 {
     int i = 0;
-    char *token = strtok(input, " ");
+    char *token = strtok(command, " ");
+    *is_background = 0;
+    *input_file = *output_file = NULL;
 
     while (token != NULL)
     {
         if (strcmp(token, "&") == 0)
-        { // Background execution
+        {
             *is_background = 1;
         }
         else if (strcmp(token, "<") == 0)
-        { // Input redirection
+        {
             token = strtok(NULL, " ");
+            if (!token)
+            {
+                fprintf(stderr, "Syntax error: expected input file after '<'\n");
+                return;
+            }
             *input_file = token;
         }
         else if (strcmp(token, ">") == 0)
-        { // Output redirection
+        {
             token = strtok(NULL, " ");
+            if (!token)
+            {
+                fprintf(stderr, "Syntax error: expected output file after '>'\n");
+                return;
+            }
             *output_file = token;
-        }
-        else if (strcmp(token, "|") == 0)
-        { // Piping
-            *is_piped = 1;
-            token = strtok(NULL, ""); // Remaining part is the second command
-            *pipe_cmd = token;
-            break; // Stop parsing after pipe
         }
         else
         {
@@ -72,119 +129,124 @@ void parse_input(char *input, char **args, int *is_background, char **input_file
         }
         token = strtok(NULL, " ");
     }
-    args[i] = NULL; // Null-terminate the argument list
+    args[i] = NULL;
 }
 
-// Function to execute commands with redirection
+// Function to execute a command with redirection
 void execute_command(char **args, int is_background, char *input_file, char *output_file)
 {
     pid_t pid = fork();
 
     if (pid == -1)
     {
-        perror("fork failed");
+        perror("Fork failed");
         return;
     }
     else if (pid == 0)
     { // Child process
         if (input_file)
-        { // Handle input redirection
+        {
             int fd = open(input_file, O_RDONLY);
             if (fd == -1)
             {
-                perror("Input file opening failed");
+                perror("Error opening input file");
                 exit(EXIT_FAILURE);
             }
             dup2(fd, STDIN_FILENO);
             close(fd);
         }
         if (output_file)
-        { // Handle output redirection
+        {
             int fd = open(output_file, O_WRONLY | O_CREAT | O_TRUNC, 0644);
             if (fd == -1)
             {
-                perror("Output file opening failed");
+                perror("Error opening output file");
                 exit(EXIT_FAILURE);
             }
             dup2(fd, STDOUT_FILENO);
             close(fd);
         }
-
         if (execvp(args[0], args) == -1)
         {
-            perror("Command execution failed");
+            fprintf(stderr, "Command execution failed: %s\n", args[0]);
+            perror("Error");
+            exit(EXIT_FAILURE);
         }
-        exit(EXIT_FAILURE);
     }
     else
     {
         if (!is_background)
         {
-            waitpid(pid, NULL, 0); // Parent waits unless it's a background process
+            waitpid(pid, NULL, 0);
         }
     }
 }
 
-// Function to execute piped commands
-void execute_piped_command(char **args, char *pipe_cmd)
+// Function to execute a pipeline of commands
+void execute_piped_commands(char *commands[], int command_count)
 {
-    int pipe_fd[2];
-    char *pipe_args[MAX_ARG_COUNT];
+    int pipe_fd[2], prev_fd = 0;
+    pid_t pid;
 
-    if (pipe(pipe_fd) == -1)
+    for (int i = 0; i < command_count; i++)
     {
-        perror("Pipe failed");
-        return;
-    }
+        char *args[MAX_ARG_COUNT], *input_file = NULL, *output_file = NULL;
+        int is_background = 0;
 
-    pid_t pid1 = fork();
-    if (pid1 == -1)
-    {
-        perror("fork failed");
-        return;
-    }
-    else if (pid1 == 0)
-    {                                    // First command (writes to pipe)
-        close(pipe_fd[0]);               // Close unused read end
-        dup2(pipe_fd[1], STDOUT_FILENO); // Redirect stdout to pipe
-        close(pipe_fd[1]);
+        parse_command(commands[i], args, &is_background, &input_file, &output_file);
 
-        if (execvp(args[0], args) == -1)
+        if (pipe(pipe_fd) == -1)
         {
-            perror("First command execution failed");
-            exit(EXIT_FAILURE);
+            perror("Pipe failed");
+            return;
         }
-    }
 
-    pid_t pid2 = fork();
-    if (pid2 == -1)
-    {
-        perror("fork failed");
-        return;
-    }
-    else if (pid2 == 0)
-    {                                   // Second command (reads from pipe)
-        close(pipe_fd[1]);              // Close unused write end
-        dup2(pipe_fd[0], STDIN_FILENO); // Redirect stdin to pipe
-        close(pipe_fd[0]);
-
-        parse_input(pipe_cmd, pipe_args, NULL, NULL, NULL, NULL, NULL);
-        if (execvp(pipe_args[0], pipe_args) == -1)
+        pid = fork();
+        if (pid == -1)
         {
-            perror("Second command execution failed");
-            exit(EXIT_FAILURE);
+            perror("Fork failed");
+            return;
         }
+        else if (pid == 0)
+        { // Child process
+            if (i > 0)
+            { // Not the first command
+                dup2(prev_fd, STDIN_FILENO);
+                close(prev_fd);
+            }
+            if (i < command_count - 1)
+            { // Not the last command
+                dup2(pipe_fd[1], STDOUT_FILENO);
+                close(pipe_fd[1]);
+            }
+
+            close(pipe_fd[0]);
+
+            if (execvp(args[0], args) == -1)
+            {
+                perror("Command execution failed");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        close(pipe_fd[1]); // Close write end in parent
+        if (i > 0)
+        {
+            close(prev_fd); // Close previous read end
+        }
+        prev_fd = pipe_fd[0]; // Save read end for next iteration
     }
 
-    close(pipe_fd[0]);
-    close(pipe_fd[1]);
+    close(prev_fd); // Close last read end
 
-    waitpid(pid1, NULL, 0);
-    waitpid(pid2, NULL, 0);
+    for (int i = 0; i < command_count; i++)
+    {
+        wait(NULL);
+    }
 }
 
-// Function to handle built-in commands
-int handle_builtin(char **args)
+// Function to execute built-in commands
+int handle_builtin(char *input, char **args)
 {
     if (strcmp(args[0], "exit") == 0)
     {
@@ -203,53 +265,76 @@ int handle_builtin(char **args)
         }
         return 1;
     }
+    else if (strcmp(args[0], "history") == 0)
+    {
+        print_history();
+        return 1;
+    }
+    else if (args[0][0] == '!')
+    { // Re-execute a command from history
+        int index = atoi(args[0] + 1);
+        if (index < 1 || index > history_count)
+        {
+            fprintf(stderr, "No such command in history\n");
+        }
+        else
+        {
+            printf("Executing: %s\n", history[index - 1]);
+            char temp_input[MAX_INPUT_SIZE];
+            strcpy(temp_input, history[index - 1]);
+            temp_input[strcspn(temp_input, "\n")] = '\0'; // Remove newline
+            strcpy(input, temp_input);                    // Replace input with history command
+            char *new_args[MAX_ARG_COUNT];
+            int new_is_background;
+            char *new_input_file, *new_output_file;
+            parse_command(input, new_args, &new_is_background, &new_input_file, &new_output_file);
+            if (handle_builtin(input, new_args))
+                return 1;
+            execute_command(new_args, new_is_background, new_input_file, new_output_file);
+            return 1;
+            return 0;
+        }
+    }
     return 0;
 }
 
 int main()
 {
-    char input[MAX_INPUT_SIZE];
-    char *args[MAX_ARG_COUNT];
-    int is_background;
-    char *input_file, *output_file, *pipe_cmd;
-    int is_piped;
+    char input[MAX_INPUT_SIZE], *commands[MAX_ARG_COUNT];
+    int command_count;
 
     while (1)
     {
         printf("mysh> ");
-        if (fgets(input, MAX_INPUT_SIZE, stdin) == NULL)
+        if (!fgets(input, MAX_INPUT_SIZE, stdin))
         {
             perror("fgets failed");
             exit(EXIT_FAILURE);
         }
 
-        input[strcspn(input, "\n")] = '\0'; // Remove newline character
+        input[strcspn(input, "\n")] = '\0'; // Remove newline
         if (strlen(input) == 0)
             continue;
 
-        // Reset parsing variables
-        is_background = 0;
-        input_file = output_file = pipe_cmd = NULL;
-        is_piped = 0;
+        add_to_history(input);
 
-        // Parse user input
-        parse_input(input, args, &is_background, &input_file, &output_file, &is_piped, &pipe_cmd);
+        parse_input(input, commands, &command_count);
 
-        // Handle built-in commands
-        if (handle_builtin(args))
+        if (command_count > 1)
         {
-            continue;
-        }
-
-        if (is_piped)
-        {
-            execute_piped_command(args, pipe_cmd);
+            execute_piped_commands(commands, command_count);
         }
         else
         {
+            char *args[MAX_ARG_COUNT];
+            int is_background;
+            char *input_file, *output_file;
+
+            parse_command(commands[0], args, &is_background, &input_file, &output_file);
+            if (handle_builtin(input, args))
+                continue;
+
             execute_command(args, is_background, input_file, output_file);
         }
     }
-
-    return 0;
 }
