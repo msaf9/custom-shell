@@ -102,6 +102,7 @@ void parse_command(char *command, char **args, int *is_background, char **input_
         if (strcmp(token, "&") == 0)
         {
             *is_background = 1;
+            break;
         }
         else if (strcmp(token, "<") == 0)
         {
