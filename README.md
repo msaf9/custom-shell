@@ -1,4 +1,25 @@
 # Custom Shell
+Designed to provide a lightweight yet functional command-line interface.
+
+## Table of Contents
+- [Overview](#overview)
+- [Features](#features)
+    - [1. Command Execution](#1-command-execution)
+    - [2. Background Execution](#2-background-execution)
+    - [3. Input and Output Redirection](#3-input-and-output-redirection)
+    - [4. Piped Commands](#4-piped-commands)
+    - [5. Built-in Commands](#5-built-in-commands)
+- [Compilation and Execution](#compilation-and-execution)
+    - [Compiling the Shell](#compiling-the-shell)
+    - [Running the Shell](#running-the-shell)
+- [Usage](#usage)
+- [Code Structure](#code-structure)
+    - [Files](#files)
+    - [Functions](#functions)
+- [Example Commands](#example-commands)
+- [Limitations](#limitations)
+- [Future Enhancements](#future-enhancements)
+- [License](#license)
 
 ## Overview
 This project is a simple custom shell implemented in C. The shell supports various features such as:
