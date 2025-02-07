@@ -73,7 +73,7 @@ mysh> cat < output.txt
 mysh> history
 mysh> !2  # Re-executes the second command from history
 mysh> ls | grep .c
-mysh> ./long_running_process &  # Runs in the background
+mysh> sleep 5 &  # Runs in the background
 ```
 
 ## Limitations
