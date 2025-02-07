@@ -89,5 +89,4 @@ mysh> ./long_running_process &  # Runs in the background
 - Support job control for background processes.
 
 ## License
-
-
+This project is released under the [MIT License](LICENSE).
