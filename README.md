@@ -56,12 +56,12 @@ The shell supports multiple piped commands (e.g., `ls | grep txt`).
 ## Compilation and Execution
 ### Compiling the Shell
 ```sh
-gcc shell.c -o mysh
+gcc src/Shell.c -o Shell
 ```
 
 ### Running the Shell
 ```sh
-./mysh
+./Shell
 ```
 
 ## Usage
