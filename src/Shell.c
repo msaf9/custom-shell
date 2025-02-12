@@ -113,7 +113,6 @@ void parse_command(char *command, char **args, int *is_background, char **input_
             if (!token)
             {
                 message(stderr, SYNTAX_ERROR_LESS_THAN_MESSAGE);
-                // fprintf(stderr, "Syntax error: expected input file after '<'\n");
                 return;
             }
             *input_file = token;
@@ -124,7 +123,6 @@ void parse_command(char *command, char **args, int *is_background, char **input_
             if (!token)
             {
                 message(stderr, SYNTAX_ERROR_GREATER_THAN_MESSAGE);
-                // fprintf(stderr, "Syntax error: expected output file after '>'\n");
                 return;
             }
             *output_file = token;
@@ -264,7 +262,6 @@ int handle_builtin(char *input, char **args)
         if (args[1] == NULL)
         {
             message(stderr, MISSING_ARGUMENT_MESSAGE);
-            // fprintf(stderr, "cd: missing argument\n");
         }
         else if (chdir(args[1]) != 0)
         {
@@ -283,7 +280,6 @@ int handle_builtin(char *input, char **args)
         if (index < 1 || index > history_count)
         {
             message(stderr, No_COMMAND_FOUND_MESSAGE);
-            // fprintf(stderr, "No such command in history\n");
         }
         else
         {
